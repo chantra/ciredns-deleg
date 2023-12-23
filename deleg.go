@@ -11,6 +11,9 @@ import (
 // Deleg is a plugin that implements https://github.com/fl1ger/deleg/blob/main/draft-dnsop-deleg.md
 type Deleg struct {
 	Next plugin.Handler
+
+	zones     []string
+	responses []dns.RR
 }
 
 // ServeDNS implements the plugin.Handler interface.
