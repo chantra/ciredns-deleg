@@ -108,9 +108,14 @@ func TestDelegResponse(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			req := new(dns.Msg)
 			req.SetQuestion("www.example.org.", dns.TypeA)
+
+			delegs := make(map[string][]dns.RR)
+			for _, z := range tc.zones {
+				zoneName := dns.CanonicalName(z)
+				delegs[zoneName] = rewriteResponsesOwner(tc.responses, zoneName)
+			}
 			d := &Deleg{
-				zones:     tc.zones,
-				responses: tc.responses,
+				delegs: delegs,
 			}
 
 			d.Next = BackendHandler(tc.auth)

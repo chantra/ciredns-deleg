@@ -12,8 +12,7 @@ import (
 type Deleg struct {
 	Next plugin.Handler
 
-	zones     []string
-	responses []dns.RR
+	delegs map[string][]dns.RR
 }
 
 // ServeDNS implements the plugin.Handler interface.
@@ -38,13 +37,10 @@ func NewResponsePrinter(w dns.ResponseWriter, d Deleg) *ResponsePrinter {
 	return &ResponsePrinter{w, d}
 }
 
-func (d Deleg) matches(owner string) string {
-	for _, z := range d.zones {
-		if dns.CountLabel(owner) == dns.CountLabel(z) && dns.IsSubDomain(z, owner) {
-			return z
-		}
-	}
-	return ""
+// matches returns the list of responses for the given owner name.
+// If there is no match, an empty list is returned.
+func (d Deleg) matches(owner string) []dns.RR {
+	return d.delegs[dns.CanonicalName(owner)]
 }
 
 // WriteMsg calls the underlying ResponseWriter's WriteMsg method and prints "example" to standard output.
@@ -61,18 +57,13 @@ func (r *ResponsePrinter) WriteMsg(res *dns.Msg) error {
 		if rtype != dns.TypeNS {
 			continue
 		}
-		zone := r.d.matches(owner)
+		responses := r.d.matches(owner)
 		//Let's assume that if there is a NS record, then there are all for the same owner name
-		if zone == "" {
+		// if there is no match, we can return without doing anything.
+		if len(responses) == 0 {
 			return r.ResponseWriter.WriteMsg(res)
 		}
 		// We have a matching zone, adding the RRs to the Auth section
-		responses := make([]dns.RR, 0)
-		for _, rr := range r.d.responses {
-			rr := dns.Copy(rr)
-			rr.Header().Name = owner
-			responses = append(responses, rr)
-		}
 		res.Ns = append(res.Ns, responses...)
 		// and we are done.
 		break

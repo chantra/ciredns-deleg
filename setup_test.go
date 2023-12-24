@@ -6,6 +6,7 @@ import (
 
 	"github.com/coredns/caddy"
 	"github.com/miekg/dns"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestSetup(t *testing.T) {
@@ -49,7 +50,7 @@ func TestSetup(t *testing.T) {
 
 	for i, test := range tests {
 		c := caddy.NewTestController("dns", test.input)
-		zones, responses, err := delegParse(c)
+		delegs, err := delegParse(c)
 
 		if test.shouldErr && err == nil {
 			t.Errorf("Test %d: Expected error but found %s for input %s", i, err, test.input)
@@ -62,14 +63,18 @@ func TestSetup(t *testing.T) {
 
 		}
 		if !test.shouldErr {
-			for i, z := range test.expectedZones {
-				if zones[i] != z {
-					t.Errorf("Deleg not correctly set for input %s. Expected: %s, actual: %s", test.input, z, zones[i])
-				}
+			var zones []string
+			for k := range delegs {
+				zones = append(zones, k)
 			}
-			for i, r := range test.expectedResponses {
-				if !reflect.DeepEqual(r, responses[i].(*dns.TXT).Txt) {
-					t.Errorf("Deleg not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, r, responses[i].(*dns.TXT).Txt)
+			assert.ElementsMatch(t, test.expectedZones, zones, "Zones mismatch. Expected %s, actual %s", test.expectedResponses, zones)
+
+			for k := range delegs {
+				for i, r := range test.expectedResponses {
+					response := delegs[k][i].(*dns.TXT).Txt
+					if !reflect.DeepEqual(r, response) {
+						t.Errorf("Deleg not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, r, response)
+					}
 				}
 			}
 

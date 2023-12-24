@@ -11,14 +11,13 @@ import (
 func init() { plugin.Register("deleg", setup) }
 
 func setup(c *caddy.Controller) error {
-	zones, responses, err := delegParse(c)
+	delegs, err := delegParse(c)
 
 	if err != nil {
 		return plugin.Error("deleg", err)
 	}
 	d := Deleg{
-		zones:     zones,
-		responses: responses,
+		delegs: delegs,
 	}
 
 	dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler {
@@ -29,37 +28,55 @@ func setup(c *caddy.Controller) error {
 	return nil
 }
 
-func delegParse(c *caddy.Controller) ([]string, []dns.RR, error) {
-	zones := []string{}
-	responses := []dns.RR{}
+func rewriteResponsesOwner(responses []dns.RR, owner string) []dns.RR {
+	rewrittenResponses := []dns.RR{}
+	for _, r := range responses {
+		r := dns.Copy(r)
+		r.Header().Name = owner
+		rewrittenResponses = append(rewrittenResponses, r)
+	}
+	return rewrittenResponses
+}
+
+// delegParse parses the configuration for delegations and returns a map of zones
+// to their corresponding DNS resource records (RR). It expects a Caddy controller
+// as input and returns the map of delegations and an error if any.
+func delegParse(c *caddy.Controller) (map[string][]dns.RR, error) {
+	var delegs map[string][]dns.RR = make(map[string][]dns.RR)
 
 	i := 0
 	// `deleg`
 	for c.Next() {
+		responses := []dns.RR{}
 		if i > 0 {
-			return nil, nil, plugin.ErrOnce
+			return nil, plugin.ErrOnce
 		}
 		i++
 
-		zones = plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
+		zones := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 
 		for c.NextBlock() {
 			switch x := c.Val(); x {
 			case "responses":
 				r, e := responseParse(c)
 				if e != nil {
-					return nil, nil, e
+					return nil, e
 				}
 				responses = append(responses, r...)
 
 			default:
-				return nil, nil, c.Errf("unknown property '%s'", x)
+				return nil, c.Errf("unknown property '%s'", x)
 			}
+		}
+
+		for _, z := range zones {
+			zoneName := dns.CanonicalName(z)
+			delegs[zoneName] = rewriteResponsesOwner(responses, zoneName)
 		}
 
 	}
 
-	return zones, responses, nil
+	return delegs, nil
 }
 
 func responseParse(c *caddy.Controller) ([]dns.RR, error) {
