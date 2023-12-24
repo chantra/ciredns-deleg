@@ -43,3 +43,5 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/miekg/dns => github.com/chantra/miekg-dns v1.0.5-0.20231224082810-b062eb3ce15a

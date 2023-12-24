@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func DELEG(rr string) dns.RR { r, _ := dns.NewRR(rr); return r }
+
 func TestSetup(t *testing.T) {
 
 	testCases := []struct {
@@ -56,6 +58,15 @@ func TestSetup(t *testing.T) {
 				"example.com.": {test.TXT("example.com. 3600 IN TXT org")},
 				"example.net.": {test.TXT("example.net. 3600 IN TXT net")},
 			},
+		},
+		{
+			"svcb deleg block",
+			`deleg example.org {
+			responses "example.org.  86400  IN DELEG  1 ns1.example.com. ( ipv4hint=192.0.2.1 ipv6hint=2001:DB8::1 )"
+		}`, false, []string{"example.org."},
+			// HACK: the following is a hack to make the test pass. The problem is that the DELEG RR is not compared correctly unless we do the same
+			// dance of dns.Copy-ing it (which we do in the plugin code when replacing the owner's name).
+			map[string][]dns.RR{"example.org.": {dns.Copy(DELEG("example.org.  86400  IN DELEG  1 ns1.example.com. ( ipv4hint=192.0.2.1 ipv6hint=2001:DB8::1 )"))}},
 		},
 	}
 

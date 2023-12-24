@@ -39,9 +39,12 @@ set your Corefile as below
 
 ~~~ Corefile
 . {
- file rootzone
+  file rootzone
   deleg com org  {
     responses "example.org. 3600 IN TXT \"this is an example\"" "example.com. 3600 IN TXT this is an another example"
+  }
+  deleg net {
+    responses "example.org.  86400  IN DELEG  1 ns1.example.com. ( ipv4hint=192.0.2.1 ipv6hint=2001:DB8::1 )"
   }
 }
 ~~~
@@ -54,7 +57,7 @@ Start `coredns`:
 
 and test:
 ~~~ bash
-dig @corednsserverip -p 1053 foo.org +noall +auth
+dig @corednsserverip -p 1053 foo.org foo.net +noall +auth
 ~~~
 
 ## Enabling the plugin
