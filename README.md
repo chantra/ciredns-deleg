@@ -17,6 +17,10 @@ For each Server Block, create a `deleg` block with the list of zones it handles 
 deleg zone1 zone2 {
     responses "example.org. 3600 IN TXT some text"
 }
+
+deleg zone3 {
+  responses "example.org. 3600 IN TXT zone3 text"
+}
 ~~~
 
 NOTE: the `owner` of the `deleg` response will be overridden. This syntax is currently used for its simplcity.

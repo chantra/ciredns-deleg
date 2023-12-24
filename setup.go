@@ -44,14 +44,9 @@ func rewriteResponsesOwner(responses []dns.RR, owner string) []dns.RR {
 func delegParse(c *caddy.Controller) (map[string][]dns.RR, error) {
 	var delegs map[string][]dns.RR = make(map[string][]dns.RR)
 
-	i := 0
 	// `deleg`
 	for c.Next() {
 		responses := []dns.RR{}
-		if i > 0 {
-			return nil, plugin.ErrOnce
-		}
-		i++
 
 		zones := plugin.OriginsFromArgsOrServerBlock(c.RemainingArgs(), c.ServerBlockKeys)
 

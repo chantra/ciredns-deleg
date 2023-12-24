@@ -1,10 +1,10 @@
 package deleg
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/coredns/caddy"
+	"github.com/coredns/coredns/plugin/test"
 	"github.com/miekg/dns"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +15,7 @@ func TestSetup(t *testing.T) {
 		input             string
 		shouldErr         bool
 		expectedZones     []string
-		expectedResponses [][]string
+		expectedResponses map[string][]dns.RR
 	}{
 		{`deleg`, false, nil, nil},
 		{`deleg example.org`, false, []string{"example.org."}, nil},
@@ -23,28 +23,43 @@ func TestSetup(t *testing.T) {
 		{
 			`deleg example.org {
 				responses "example.org. 3600 IN TXT aaaaa"
-			}`, false, []string{"example.org."}, [][]string{{"aaaaa"}},
+			}`, false, []string{"example.org."}, map[string][]dns.RR{"example.org.": {test.TXT("example.org. 3600 IN TXT aaaaa")}},
 		},
 		{
 			`deleg example.org {
 				responses "example.org. 3600 IN TXT aaaaa" "example.org. 3600 IN TXT bbbbbb"
-			}`, false, []string{"example.org."}, [][]string{{"aaaaa"}, {"bbbbbb"}},
+			}`, false, []string{"example.org."}, map[string][]dns.RR{"example.org.": {test.TXT("example.org. 3600 IN TXT aaaaa"), test.TXT("example.org. 3600 IN TXT bbbbbb")}},
 		},
 		{
 			`deleg example.org {
 				responses "example.org. 3600 IN TXT \"aaaaa\" \"bbbbbb\""
-			}`, false, []string{"example.org."}, [][]string{{"aaaaa", "bbbbbb"}},
+			}`, false, []string{"example.org."}, map[string][]dns.RR{"example.org.": {test.TXT("example.org. 3600 IN TXT \"aaaaa\" \"bbbbbb\"")}},
 		},
 		{
 			`deleg example.org {
 				responses "example.org. 3600 IN TXT \"spf1 -all\""
-			}`, false, []string{"example.org."}, [][]string{{"spf1 -all"}},
+			}`, false, []string{"example.org."}, map[string][]dns.RR{"example.org.": {test.TXT("example.org. 3600 IN TXT \"spf1 -all\"")}},
 		},
 		// multiple zones associated with the same block.
 		{
 			`deleg example.org example.com {
 				responses "example.org. 3600 IN TXT spf1 -all"
-			}`, false, []string{"example.org.", "example.com."}, [][]string{{"spf1", "-all"}},
+			}`, false, []string{"example.org.", "example.com."}, map[string][]dns.RR{"example.org.": {test.TXT("example.org. 3600 IN TXT spf1 -all")}, "example.com.": {test.TXT("example.com. 3600 IN TXT spf1 -all")}},
+		},
+
+		// multiple zones associated with different records.
+		{
+			`deleg example.org example.com {
+				responses "example.org. 3600 IN TXT org"
+			}
+			deleg example.net  {
+				responses "example.net. 3600 IN TXT net"
+			}`, false, []string{"example.org.", "example.com.", "example.net."},
+			map[string][]dns.RR{
+				"example.org.": {test.TXT("example.org. 3600 IN TXT org")},
+				"example.com.": {test.TXT("example.com. 3600 IN TXT org")},
+				"example.net.": {test.TXT("example.net. 3600 IN TXT net")},
+			},
 		},
 	}
 
@@ -70,12 +85,7 @@ func TestSetup(t *testing.T) {
 			assert.ElementsMatch(t, test.expectedZones, zones, "Zones mismatch. Expected %s, actual %s", test.expectedResponses, zones)
 
 			for k := range delegs {
-				for i, r := range test.expectedResponses {
-					response := delegs[k][i].(*dns.TXT).Txt
-					if !reflect.DeepEqual(r, response) {
-						t.Errorf("Deleg not correctly set for input %s. Expected: '%s', actual: '%s'", test.input, r, response)
-					}
-				}
+				assert.ElementsMatch(t, test.expectedResponses[k], delegs[k], "Responses mismatch. Expected %s, actual %s", test.expectedResponses[k], delegs[k])
 			}
 
 		}
