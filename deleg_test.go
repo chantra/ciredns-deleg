@@ -37,6 +37,7 @@ func TestDelegResponse(t *testing.T) {
 		zones       []string
 		responses   []dns.RR
 		shouldMatch bool
+		expectedNs  []dns.RR // if nil, we expect auth + responses, otherwise, we expect expectedNs
 	}{
 		// Standard response with an NS record matching one of the zones
 		{
@@ -45,6 +46,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			true,
+			nil,
 		},
 		// Check that we only add the records once.
 		{
@@ -53,6 +55,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			true,
+			nil,
 		},
 		// Standard response with an NS record not matching any of the zones
 		{
@@ -61,6 +64,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			false,
+			nil,
 		},
 		// Standard response with an NS record matching one of the zones, the matching zone is not the first in the list.
 		{
@@ -69,6 +73,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.com.", "example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			true,
+			nil,
 		},
 		// Standard response with an NS record matching one of the zones, the matching zone is not the first in the list.
 		// and we have other records along the NS record.
@@ -78,6 +83,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.com.", "example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			true,
+			nil,
 		},
 		// Standard response with an NS record matching one of the zones, the aded record is not matching the owner of the NS record. Expected as we do not validate this currently.
 		{
@@ -86,6 +92,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.com.", "example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
 			true,
+			[]dns.RR{test.NS("example.com. 3600 IN NS ns1.example.org."), test.A("example.com. 3600 IN A 127.0.0.1")},
 		},
 		// Standard response with a record matching one of the zones BUT it is not an NS record so we do not add anything.
 		{
@@ -94,6 +101,7 @@ func TestDelegResponse(t *testing.T) {
 			[]string{"example.com.", "example.org."},
 			[]dns.RR{test.AAAA("example.org. 3600 IN AAAA ::1")},
 			false,
+			nil,
 		},
 	}
 	for _, tc := range testCases {
@@ -113,7 +121,11 @@ func TestDelegResponse(t *testing.T) {
 
 			d.ServeDNS(ctx, rec, req)
 
-			expectedNs := append(tc.auth, tc.responses...)
+			expectedNs := tc.expectedNs
+			if expectedNs == nil {
+				expectedNs = append(tc.auth, tc.responses...)
+			}
+
 			if tc.shouldMatch {
 				if !reflect.DeepEqual(rec.Msg.Ns, expectedNs) {
 					t.Errorf("Expecting %s got %s", expectedNs, rec.Msg.Ns)

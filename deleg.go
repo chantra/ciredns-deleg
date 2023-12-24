@@ -67,7 +67,13 @@ func (r *ResponsePrinter) WriteMsg(res *dns.Msg) error {
 			return r.ResponseWriter.WriteMsg(res)
 		}
 		// We have a matching zone, adding the RRs to the Auth section
-		res.Ns = append(res.Ns, r.d.responses...)
+		responses := make([]dns.RR, 0)
+		for _, rr := range r.d.responses {
+			rr := dns.Copy(rr)
+			rr.Header().Name = owner
+			responses = append(responses, rr)
+		}
+		res.Ns = append(res.Ns, responses...)
 		// and we are done.
 		break
 	}

@@ -19,6 +19,8 @@ deleg zone1 zone2 {
 }
 ~~~
 
+NOTE: the `owner` of the `deleg` response will be overridden. This syntax is currently used for its simplcity.
+
 ## Examples
 
 In this example, we will serve the root zone and add records for the com and org delegations.
