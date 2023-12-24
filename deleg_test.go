@@ -78,7 +78,7 @@ func TestDelegResponse(t *testing.T) {
 		// Standard response with an NS record matching one of the zones, the matching zone is not the first in the list.
 		// and we have other records along the NS record.
 		{
-			"Multizone match",
+			"Multizone match with non-NS records",
 			[]dns.RR{test.A("example.com. 3600 IN A 127.0.0.1"), test.NS("example.org. 3600 IN NS ns1.example.org.")},
 			[]string{"example.com.", "example.org."},
 			[]dns.RR{test.A("example.org. 3600 IN A 127.0.0.1")},
